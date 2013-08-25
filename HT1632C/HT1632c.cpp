@@ -1,7 +1,7 @@
 #include "fonts.h"
 #include "images.h"
 #include "HT1632c.h"
-#include "digitalWriteFast.h" 
+#include "digitalWriteFast.h"
 
 // our own copy of the "video" memory; 64 bytes for each of the 4 screen quarters;
 // each 64-element array maps 2 planes:
@@ -144,7 +144,7 @@ void HT1632c::ht1632_writebits (byte bits, byte firstbit)
     digitalWriteFast(ht1632_wrclk, LOW);
     if (bits & firstbit) {
       digitalWriteFast(ht1632_data, HIGH);
-    } 
+    }
     else {
       digitalWriteFast(ht1632_data, LOW);
     }
@@ -162,7 +162,7 @@ void HT1632c::ht1632_sendcmd (byte chipNo, byte command)
   ChipSelect(chipNo);
   ht1632_writebits(HT1632_ID_CMD, 1<<2);  // send 3 bits of id: COMMMAND
   ht1632_writebits(command, 1<<7);  // send the actual command
-  ht1632_writebits(0, 1); 	/* one extra dont-care bit in commands. */
+  ht1632_writebits(0, 1);   /* one extra dont-care bit in commands. */
   ChipSelect(0);
 }
 
@@ -192,7 +192,7 @@ void HT1632c::setup()
 void HT1632c::ht1632_setup()
 {
   pinModeFast(ht1632_cs, OUTPUT);
-  digitalWriteFast(ht1632_cs, HIGH); 	/* unselect (active low) */
+  digitalWriteFast(ht1632_cs, HIGH);  /* unselect (active low) */
   pinModeFast(ht1632_wrclk, OUTPUT);
   pinModeFast(ht1632_data, OUTPUT);
   pinModeFast(ht1632_clk, OUTPUT);
@@ -201,11 +201,12 @@ void HT1632c::ht1632_setup()
   {
     ht1632_sendcmd(j, HT1632_CMD_SYSDIS);  // Disable system
     ht1632_sendcmd(j, HT1632_CMD_COMS00);
-    ht1632_sendcmd(j, HT1632_CMD_MSTMD); 	/* Master Mode */
+    ht1632_sendcmd(j, HT1632_CMD_MSTMD);  /* Master Mode */
     ht1632_sendcmd(j, HT1632_CMD_RCCLK);        // HT1632C
-    ht1632_sendcmd(j, HT1632_CMD_SYSON); 	/* System on */
-    ht1632_sendcmd(j, HT1632_CMD_LEDON); 	/* LEDs on */
-  
+    ht1632_sendcmd(j, HT1632_CMD_SYSON);  /* System on */
+    ht1632_sendcmd(j, HT1632_CMD_LEDON);  /* LEDs on */
+    ht1632_sendcmd(j, HT1632_CMD_PWM);
+
     for (byte i=0; i<96; i++)
     {
       ht1632_senddata(j, i, 0);  // clear the display!
@@ -273,6 +274,14 @@ int HT1632c::get_pixel(byte x, byte y) {
   }
 }
 
+void HT1632c::set_brightness (uint8_t pwm) {
+  if (pwm > 15) {
+    pwm = 15;
+  }
+  for (int i = 0; i < 4; i++) {
+    ht1632_sendcmd(i, HT1632_CMD_PWM | pwm);
+  }
+}
 
 /*
  * plot a point on the display, with the upper left hand corner
@@ -284,19 +293,19 @@ int HT1632c::get_pixel(byte x, byte y) {
 void HT1632c::ht1632_plot (int x, int y, byte color)
 {
    byte nChip, addr, bitval;
-  
+
   if (x<0 || x>X_MAX || y<0 || y>Y_MAX)
     return;
-  
+
   if (color != BLACK && color != GREEN && color != RED && color != ORANGE)
     return;
-  
+
 //  DC: Fixed to work with multiple screens
     nChip = 1 + 4 * (x/32) + (x-32 * (x/32) )/16 + (y>7?2:0);
 
   addr = xyToIndex(x,y);
   bitval = calcBit(y);
-  
+
   switch (color)
   {
     case BLACK:
@@ -374,7 +383,7 @@ void HT1632c::cls() {
 }
 
 void HT1632c::putChar(char c, int x, int y, byte color) {
-	ht1632_putchar(x, y, c, color);
+  ht1632_putchar(x, y, c, color);
 }
 
 //void ht1632_putchar(byte x, byte y, char c, byte color=GREEN)
@@ -384,14 +393,14 @@ void HT1632c::ht1632_putchar(int x, int y, char c, byte color)
   //if (c >= 'A' && c <= 'Z' ||
   //  (c >= 'a' && c <= 'z') ) {
   //  c &= 0x1F;   // A-Z maps to 1-26
-  //} 
+  //}
   //else if (c >= '0' && c <= '9') {
   //  c = (c - '0') + 27;
-  //} 
+  //}
   //else if (c == ' ') {
   //  c = 0; // space
   //}
-  
+
   if (c == ' ') {c = 0;}
   else if (c == '!') {c = 1;}
   else if (c == '"') {c = 2;}
@@ -407,45 +416,45 @@ void HT1632c::ht1632_putchar(int x, int y, char c, byte color)
   else if (c == ',') {c = 12;}
   else if (c == '-') {c = 13;}
   else if (c == '.') {c = 14;}
-  else if (c == '/') {c = 15;}  
-  
+  else if (c == '/') {c = 15;}
+
   else if (c >= '0' && c <= '9') {
     c = (c - '0') + 16;
   }
-  
-  else if (c == ':') {c = 26;} 
-  else if (c == ';') {c = 27;} 
+
+  else if (c == ':') {c = 26;}
+  else if (c == ';') {c = 27;}
   else if (c == '<') {c = 28;}
   else if (c == '=') {c = 29;}
   else if (c == '>') {c = 30;}
   else if (c == '?') {c = 31;}
-  else if (c == '@') {c = 32;}   
-  
+  else if (c == '@') {c = 32;}
+
   else if (c >= 'A' && c <= 'Z') {
     c = (c - 'A') + 33;
   }
-  
+
   else if (c == '[') {c = 59;}
   //else if (c == '\') {c = 60;}
   else if (c == ']') {c = 61;}
   else if (c == '^') {c = 62;}
   else if (c == '_') {c = 63;}
   else if (c == '`') {c = 64;}
-  
+
   else if (c >= 'a' && c <= 'z') {
     c = (c - 'a') + 65;
   }
-  
+
   else if (c == '{') {c = 91;}
   else if (c == '|') {c = 92;}
   else if (c == '}') {c = 93;}
-  
+
   for (char col=0; col< 6; col++) {
     dots = pgm_read_byte_near(&my3font[c][col]);
     for (char row=0; row < 7; row++) {
-      if (dots & (64>>row))   	     // only 7 rows.
+      if (dots & (64>>row))          // only 7 rows.
         plot(x+col, y+row, color);
-      else 
+      else
         plot(x+col, y+row, 0);
     }
   }
@@ -457,9 +466,9 @@ void HT1632c::ht1632_putchar(int x, int y, char c, byte color)
  * display memory, with its upper left at the given coordinate
  * This is unoptimized and simply uses plot() to draw each dot.
  * Slightly adopted for using fonts with more rows then 8
- *  ht1632_putcharsizecolor(x location, y location , char , 
- *  size as integer, colorname (RANDOMCOLOR for random color),  
- *  name of the font array,  umber of columns, number of rows, 'G' for Gimp or 'T' for The Dot Factory font arrays) 
+ *  ht1632_putcharsizecolor(x location, y location , char ,
+ *  size as integer, colorname (RANDOMCOLOR for random color),
+ *  name of the font array,  umber of columns, number of rows, 'G' for Gimp or 'T' for The Dot Factory font arrays)
  */
 void HT1632c::ht1632_putcharsizecolor(int x, int y,unsigned char c,  char size, byte color, byte secondcolor, unsigned char fontname[][NCOLUMNS],  int columncountfont, char rowcountfont, char oddeven)
 {
@@ -471,12 +480,12 @@ void HT1632c::ht1632_putcharsizecolor(int x, int y,unsigned char c,  char size, 
   else
     maximumdrawfont=128;
   for (byte col=0; col<columncountfont*size ; col++) {
-    // Addressing the right 8 lines because 'The Dot Factory' starts from the bottom, all others from top  
+    // Addressing the right 8 lines because 'The Dot Factory' starts from the bottom, all others from top
     if (rowcountfont <=8) {
       cc=col/size;
       dots = pgm_read_byte_near(&fontname[c][cc]);
       divisor=1;
-    } 
+    }
     else if (rowcountfont>8 && rowcountfont <=16){
       if (oddeven=='T'){
         g=0;
@@ -490,7 +499,7 @@ void HT1632c::ht1632_putcharsizecolor(int x, int y,unsigned char c,  char size, 
       cc=col/size*2+g;
       cc2=col/size*2+t;
       dots = pgm_read_byte_near(&fontname[c][cc]);
-      dots2 = pgm_read_byte_near(&fontname[c][cc2]);  
+      dots2 = pgm_read_byte_near(&fontname[c][cc2]);
       divisor=2;
     }
     else if (rowcountfont>16 && rowcountfont <=24){
@@ -509,8 +518,8 @@ void HT1632c::ht1632_putcharsizecolor(int x, int y,unsigned char c,  char size, 
       cc2=col/size*divisor+t;
       cc3=col/size*divisor+t3;
       dots = pgm_read_byte_near(&fontname[c][cc]);
-      dots2 = pgm_read_byte_near(&fontname[c][cc2]);  
-      dots3 = pgm_read_byte_near(&fontname[c][cc3]); 
+      dots2 = pgm_read_byte_near(&fontname[c][cc2]);
+      dots3 = pgm_read_byte_near(&fontname[c][cc3]);
 
     }
     for (byte row=0; row < rowcountfont/divisor*size; row++) {
@@ -518,35 +527,35 @@ void HT1632c::ht1632_putcharsizecolor(int x, int y,unsigned char c,  char size, 
         showcolor=random(3)+1;
       }
       else
-      { 
+      {
         showcolor=color;
       }
       if (secondcolor==5){
         showsecondcolor=random(3)+1;
       }
       else
-      { 
+      {
         showsecondcolor=secondcolor;
       }
 
       rr=row/size;
-      if (dots & (maximumdrawfont>>rr))           
-        plot(x+col, y+row, showcolor);        
-      else 
+      if (dots & (maximumdrawfont>>rr))
+        plot(x+col, y+row, showcolor);
+      else
         plot(x+col, y+row, showsecondcolor);
       if (divisor>=2){
-        if (dots2 & (maximumdrawfont>>rr))           
+        if (dots2 & (maximumdrawfont>>rr))
           plot(x+col, y+rowcountfont/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+rowcountfont/divisor+row, showsecondcolor);
       }
       if (divisor>=3){
-        if (dots3& (maximumdrawfont>>rr))           
+        if (dots3& (maximumdrawfont>>rr))
           plot(x+col, y+2*rowcountfont/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+2*rowcountfont/divisor+row, showsecondcolor);
       }
-    }     
+    }
   }
 }
 
@@ -562,7 +571,7 @@ void HT1632c::ht1632_putcharsize1D(int x, int y,unsigned char c,  char size, byt
     maximumdrawfont=128;
 
   for (byte col=0; col<columncountfont*size ; col++) {
-    // Addressing the right 8 lines because 'The Dot Factory' starts from the bottom, all others from top  
+    // Addressing the right 8 lines because 'The Dot Factory' starts from the bottom, all others from top
     if (rowcountfont <=8) {
       if (c==' ')
         arrayposition=0;
@@ -575,7 +584,7 @@ void HT1632c::ht1632_putcharsize1D(int x, int y,unsigned char c,  char size, byt
       cc=col/size+arrayposition;
       dots = pgm_read_byte_near(&fontname[cc]);
       divisor=1;
-    } 
+    }
     else if (rowcountfont>8 && rowcountfont <=16){
       if (oddeven=='T'){
         g=0;
@@ -593,8 +602,8 @@ void HT1632c::ht1632_putcharsize1D(int x, int y,unsigned char c,  char size, byt
       cc=col/size*2+g+arrayposition;
       cc2=col/size*2+t+arrayposition;
       dots = pgm_read_byte_near(&fontname[cc]);
-      dots2 = pgm_read_byte_near(&fontname[cc2]);  
-      divisor=2;  
+      dots2 = pgm_read_byte_near(&fontname[cc2]);
+      divisor=2;
     }
     else if (rowcountfont>16 && rowcountfont <=24){
       if (oddeven=='T'){
@@ -616,8 +625,8 @@ void HT1632c::ht1632_putcharsize1D(int x, int y,unsigned char c,  char size, byt
       cc2=col/size*divisor+t+arrayposition;
       cc3=col/size*divisor+t3+arrayposition;
       dots = pgm_read_byte_near(&fontname[cc]);
-      dots2 = pgm_read_byte_near(&fontname[cc2]);  
-      dots3 = pgm_read_byte_near(&fontname[cc3]); 
+      dots2 = pgm_read_byte_near(&fontname[cc2]);
+      dots3 = pgm_read_byte_near(&fontname[cc3]);
 
     }
     for (byte row=0; row < rowcountfont/divisor*size; row++) {
@@ -625,48 +634,48 @@ void HT1632c::ht1632_putcharsize1D(int x, int y,unsigned char c,  char size, byt
         showcolor=random(3)+1;
       }
       else
-      { 
+      {
         showcolor=color;
       }
       if (secondcolor==5){
         showsecondcolor=random(3)+1;
       }
       else
-      { 
+      {
         showsecondcolor=secondcolor;
       }
       rr=row/size;
-      if (dots & (maximumdrawfont>>rr))           
-        plot(x+col, y+row, showcolor);        
-      else 
+      if (dots & (maximumdrawfont>>rr))
+        plot(x+col, y+row, showcolor);
+      else
         plot(x+col, y+row, showsecondcolor);
       if (divisor>=2){
-        if (dots2 & (maximumdrawfont>>rr))           
+        if (dots2 & (maximumdrawfont>>rr))
           plot(x+col, y+rowcountfont/divisor+row, showcolor);
 
-        else 
+        else
           plot(x+col, y+rowcountfont/divisor+row, showsecondcolor);
       }
       if (divisor>=3){
-        if (dots3& (maximumdrawfont>>rr))           
+        if (dots3& (maximumdrawfont>>rr))
           plot(x+col, y+2*rowcountfont/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+2*rowcountfont/divisor+row, showsecondcolor);
       }
-    }     
+    }
   }
 
 }
 
 
 /*
- * Copy a bitmap from any XBM bitmap file 
+ * Copy a bitmap from any XBM bitmap file
  * Maximum possible lines are 80 lines
- * Restrictions=Amount of SRAM is the maximum drawing space 
- * There will be a fix for the restrictons hopefully in the future 
+ * Restrictions=Amount of SRAM is the maximum drawing space
+ * There will be a fix for the restrictons hopefully in the future
  * Slightly adopted for using bitmaps
- *  ht1632_putbigbitmap(x location, y location , bitmapname ,  
- *  colorname (RANDOMCOLOR for random color), name of the second color (instead of BLACK), 
+ *  ht1632_putbigbitmap(x location, y location , bitmapname ,
+ *  colorname (RANDOMCOLOR for random color), name of the second color (instead of BLACK),
  *  number of columns, number of rows, 'G' for Gimp or 'T' for The Dot Factory bitmap arrays).
  */
 
@@ -693,12 +702,12 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
 
   for (unsigned short col=startcolum; col<endcolumn; col++) {
     //for (byte col=0; col<columncountbitmap; col++) {
-    // Addressing the right 8 lines because 'The Dot Factory' starts from the bottom, all others from top  
+    // Addressing the right 8 lines because 'The Dot Factory' starts from the bottom, all others from top
     if (rowcountbitmap <=8) {
       cc=col;
       dots = pgm_read_byte_near(&bitmapname[cc]);
       divisor=1;
-    } 
+    }
     else if (rowcountbitmap>8 && rowcountbitmap <=16){
       if (oddeven=='T'){
         g=0;
@@ -712,10 +721,10 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
       cc=col*2+g;
       cc2=col*2+t;
       dots = pgm_read_byte_near(&bitmapname[cc]);
-      dots2 = pgm_read_byte_near(&bitmapname[cc2]);  
+      dots2 = pgm_read_byte_near(&bitmapname[cc2]);
       divisor=2;
     }
-    else if (rowcountbitmap>16 && rowcountbitmap <=24){     
+    else if (rowcountbitmap>16 && rowcountbitmap <=24){
       if (oddeven=='T'){
         g=0;
         t=1;
@@ -727,8 +736,8 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
         t3=0;
       }
       cc=col*3+g;
-      cc2=col*3+t; 
-      cc3=col*3+t3;   
+      cc2=col*3+t;
+      cc3=col*3+t3;
       dots = pgm_read_byte_near(&bitmapname[cc]);
       dots2 = pgm_read_byte_near(&bitmapname[cc2]);
       dots3 = pgm_read_byte_near(&bitmapname[cc3]);
@@ -748,16 +757,16 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
         t4=0;
       }
       cc=col*4+g;
-      cc2=col*4+t; 
+      cc2=col*4+t;
       cc3=col*4+t3;
-      cc4=col*4+t4; 
+      cc4=col*4+t4;
       dots = pgm_read_byte_near(&bitmapname[cc]);
       dots2 = pgm_read_byte_near(&bitmapname[cc2]);
       dots3 = pgm_read_byte_near(&bitmapname[cc3]);
       dots4 = pgm_read_byte_near(&bitmapname[cc4]);
       divisor=4;
     }
-    else if (rowcountbitmap>32 && rowcountbitmap <=40){   
+    else if (rowcountbitmap>32 && rowcountbitmap <=40){
       if (oddeven=='T'){
         g=0;
         t=1;
@@ -773,10 +782,10 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
         t5=0;
       }
       cc=col*5+g;
-      cc2=col*5+t; 
+      cc2=col*5+t;
       cc3=col*5+t3;
-      cc4=col*5+t4; 
-      cc5=col*5+t5; 
+      cc4=col*5+t4;
+      cc5=col*5+t5;
       dots = pgm_read_byte_near(&bitmapname[cc]);
       dots2 = pgm_read_byte_near(&bitmapname[cc2]);
       dots3 = pgm_read_byte_near(&bitmapname[cc3]);
@@ -784,7 +793,7 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
       dots5 = pgm_read_byte_near(&bitmapname[cc5]);
       divisor=5;
     }
-    else if (rowcountbitmap>40 && rowcountbitmap <=48){   
+    else if (rowcountbitmap>40 && rowcountbitmap <=48){
       if (oddeven=='T'){
         g=0;
         t=1;
@@ -803,10 +812,10 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
       }
       divisor=6;
       cc=col*6+g;
-      cc2=col*divisor+t; 
+      cc2=col*divisor+t;
       cc3=col*divisor+t3;
-      cc4=col*divisor+t4; 
-      cc5=col*divisor+t5; 
+      cc4=col*divisor+t4;
+      cc5=col*divisor+t5;
       cc6=col*divisor+t6;
       dots = pgm_read_byte_near(&bitmapname[cc]);
       dots2 = pgm_read_byte_near(&bitmapname[cc2]);
@@ -815,7 +824,7 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
       dots5 = pgm_read_byte_near(&bitmapname[cc5]);
       dots6 = pgm_read_byte_near(&bitmapname[cc6]);
     }
-    else if (rowcountbitmap>48 && rowcountbitmap <=56){   
+    else if (rowcountbitmap>48 && rowcountbitmap <=56){
       if (oddeven=='T'){
         g=0;
         t=1;
@@ -836,10 +845,10 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
       }
       divisor=7;
       cc=col*divisor+g;
-      cc2=col*divisor+t; 
+      cc2=col*divisor+t;
       cc3=col*divisor+t3;
-      cc4=col*divisor+t4; 
-      cc5=col*divisor+t5; 
+      cc4=col*divisor+t4;
+      cc5=col*divisor+t5;
       cc6=col*divisor+t6;
       cc7=col*divisor+t7;
       dots = pgm_read_byte_near(&bitmapname[cc]);
@@ -850,7 +859,7 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
       dots6 = pgm_read_byte_near(&bitmapname[cc6]);
       dots7 = pgm_read_byte_near(&bitmapname[cc7]);
     }
-    else if (rowcountbitmap>56 && rowcountbitmap <=64){   
+    else if (rowcountbitmap>56 && rowcountbitmap <=64){
       if (oddeven=='T'){
         g=0;
         t=1;
@@ -873,10 +882,10 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
       }
       divisor=8;
       cc=col*divisor+g;
-      cc2=col*divisor+t; 
+      cc2=col*divisor+t;
       cc3=col*divisor+t3;
-      cc4=col*divisor+t4; 
-      cc5=col*divisor+t5; 
+      cc4=col*divisor+t4;
+      cc5=col*divisor+t5;
       cc6=col*divisor+t6;
       cc7=col*divisor+t7;
       cc8=col*divisor+t8;
@@ -889,7 +898,7 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
       dots7 = pgm_read_byte_near(&bitmapname[cc7]);
       dots8 = pgm_read_byte_near(&bitmapname[cc8]);
     }
-    else if (rowcountbitmap>64 && rowcountbitmap <=72){   
+    else if (rowcountbitmap>64 && rowcountbitmap <=72){
       if (oddeven=='T'){
         g=0;
         t=1;
@@ -914,10 +923,10 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
       }
       divisor=9;
       cc=col*divisor+g;
-      cc2=col*divisor+t; 
+      cc2=col*divisor+t;
       cc3=col*divisor+t3;
-      cc4=col*divisor+t4; 
-      cc5=col*divisor+t5; 
+      cc4=col*divisor+t4;
+      cc5=col*divisor+t5;
       cc6=col*divisor+t6;
       cc7=col*divisor+t7;
       cc8=col*divisor+t8;
@@ -932,7 +941,7 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
       dots8 = pgm_read_byte_near(&bitmapname[cc8]);
       dots9 = pgm_read_byte_near(&bitmapname[cc9]);
     }
-    else if (rowcountbitmap>72 && rowcountbitmap <=80){   
+    else if (rowcountbitmap>72 && rowcountbitmap <=80){
       if (oddeven=='T'){
         g=0;
         t=1;
@@ -959,10 +968,10 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
       }
       divisor=10;
       cc=col*divisor+g;
-      cc2=col*divisor+t; 
+      cc2=col*divisor+t;
       cc3=col*divisor+t3;
-      cc4=col*divisor+t4; 
-      cc5=col*divisor+t5; 
+      cc4=col*divisor+t4;
+      cc5=col*divisor+t5;
       cc6=col*divisor+t6;
       cc7=col*divisor+t7;
       cc8=col*divisor+t8;
@@ -985,84 +994,84 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
         showcolor=random(3)+1;
       }
       else
-      { 
+      {
         showcolor=color;
       }
       if (secondcolor==5){
         showsecondcolor=random(3)+1;
       }
       else
-      { 
+      {
         showsecondcolor=secondcolor;
       }
 
-      if (dots & (maximumdrawbitmap>>row))           
+      if (dots & (maximumdrawbitmap>>row))
         plot(x+col, y+row,  showcolor);
-      else 
+      else
         plot(x+col, y+row, showsecondcolor);
-      if (divisor>=2){ 
-        if (dots2 & (maximumdrawbitmap>>row))           
+      if (divisor>=2){
+        if (dots2 & (maximumdrawbitmap>>row))
           plot(x+col, y+rowcountbitmap/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+rowcountbitmap/divisor+row, showsecondcolor);
       }
       if (divisor>=3){
-        if (dots3 & (maximumdrawbitmap>>row))           
+        if (dots3 & (maximumdrawbitmap>>row))
           plot(x+col, y+2*rowcountbitmap/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+2*rowcountbitmap/divisor+row, showsecondcolor);
       }
-      if (divisor>=4){   
-        if (dots4 & (maximumdrawbitmap>>row))           
+      if (divisor>=4){
+        if (dots4 & (maximumdrawbitmap>>row))
           plot(x+col, y+3*rowcountbitmap/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+3*rowcountbitmap/divisor+row, showsecondcolor);
       }
-      if (divisor>=5){   
-        if (dots5 & (maximumdrawbitmap>>row))           
+      if (divisor>=5){
+        if (dots5 & (maximumdrawbitmap>>row))
           plot(x+col, y+4*rowcountbitmap/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+4*rowcountbitmap/divisor+row, showsecondcolor);
       }
-      if (divisor>=6){   
-        if (dots6& (maximumdrawbitmap>>row))           
+      if (divisor>=6){
+        if (dots6& (maximumdrawbitmap>>row))
           plot(x+col, y+5*rowcountbitmap/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+5*rowcountbitmap/divisor+row, showsecondcolor);
       }
-      if (divisor>=7){   
-        if (dots7& (maximumdrawbitmap>>row))           
+      if (divisor>=7){
+        if (dots7& (maximumdrawbitmap>>row))
           plot(x+col, y+6*rowcountbitmap/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+6*rowcountbitmap/divisor+row, showsecondcolor);
       }
-      if (divisor>=8){   
-        if (dots8& (maximumdrawbitmap>>row))           
+      if (divisor>=8){
+        if (dots8& (maximumdrawbitmap>>row))
           plot(x+col, y+7*rowcountbitmap/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+7*rowcountbitmap/divisor+row, showsecondcolor);
       }
-      if (divisor>=9){   
-        if (dots9& (maximumdrawbitmap>>row))           
+      if (divisor>=9){
+        if (dots9& (maximumdrawbitmap>>row))
           plot(x+col, y+8*rowcountbitmap/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+8*rowcountbitmap/divisor+row, showsecondcolor);
       }
-      if (divisor>=10){   
-        if (dots10& (maximumdrawbitmap>>row))           
+      if (divisor>=10){
+        if (dots10& (maximumdrawbitmap>>row))
           plot(x+col, y+9*rowcountbitmap/divisor+row, showcolor);
-        else 
+        else
           plot(x+col, y+9*rowcountbitmap/divisor+row, showsecondcolor);
       }
 
-    }    
+    }
   }
 }
 
 
 
 /***********************************************************************
- * Scrolling  functions 
+ * Scrolling  functions
  * for scrolling text and bitmaps
  * Please take only fonts with fixed heigth and width, otherwise the
  * chars will be overlapping
@@ -1073,8 +1082,8 @@ void HT1632c::ht1632_putbigbitmap(int x, int y, byte color, byte secondcolor,  u
  * scrollbitmapx()
  * Scrolls a bitmap from left to right
  * Original function by Bill Ho
- * scrollbitmapx (x location, colorname (RANDOMCOLOR for random color), 
- * name of the second color (instead of BLACK), bitmapnae , number of columns, 
+ * scrollbitmapx (x location, colorname (RANDOMCOLOR for random color),
+ * name of the second color (instead of BLACK), bitmapnae , number of columns,
  * number of rows, 'G' for Gimp or 'T' for The Dot Factory bitmap arrays, delaytime in milliseconds).
  */
 void HT1632c::scrollbitmapxcolor(int y, byte color, byte secondcolor,unsigned char * bitmapname,int columncountbitmap, byte rowcountbitmap,char oddeven,int delaytime) {
@@ -1088,17 +1097,17 @@ void HT1632c::scrollbitmapxcolor(int y, byte color, byte secondcolor,unsigned ch
           showcolor=random(3)+1;
         }
         else
-        { 
+        {
           showcolor=color;}
           if (secondcolor==4){
         showsecondcolor=random(3)+1;
       }
       else
-      { 
+      {
         showsecondcolor=secondcolor;
       }
-          
-        ht1632_putbigbitmap(xpos + (columncountbitmap *i), y, showcolor, showsecondcolor, bitmapname , columncountbitmap,rowcountbitmap, oddeven); 
+
+        ht1632_putbigbitmap(xpos + (columncountbitmap *i), y, showcolor, showsecondcolor, bitmapname , columncountbitmap,rowcountbitmap, oddeven);
       }
       delay(delaytime);// reduce speed of scroll
       xpos--;
@@ -1111,11 +1120,11 @@ void HT1632c::scrollbitmapxcolor(int y, byte color, byte secondcolor,unsigned ch
  * scrollbitmapy()
  * Scrolls a bitmap from bottom to up
  * Original function by Bill Ho
- * scrollbitmapy (y location, colorname (RANDOMCOLOR for random color), 
- * name of the second color (instead of BLACK), bitmapnae , number of columns, 
+ * scrollbitmapy (y location, colorname (RANDOMCOLOR for random color),
+ * name of the second color (instead of BLACK), bitmapnae , number of columns,
  * number of rows, 'G' for Gimp or 'T' for The Dot Factory bitmap arrays, delaytime in milliseconds).
  */
-void HT1632c::scrollbitmapycolor(int x,byte color, byte secondcolor,unsigned char * bitmapname ,int columncountbitmap, byte rowcountbitmap,char oddeven, int delaytime) {  
+void HT1632c::scrollbitmapycolor(int x,byte color, byte secondcolor,unsigned char * bitmapname ,int columncountbitmap, byte rowcountbitmap,char oddeven, int delaytime) {
   byte showcolor,showsecondcolor;
   int ya = 0;
   while (ya<1) {
@@ -1126,19 +1135,19 @@ void HT1632c::scrollbitmapycolor(int x,byte color, byte secondcolor,unsigned cha
           showcolor=random(3)+1;
         }
         else
-        { 
+        {
           showcolor=color;}
           if (secondcolor==4){
         showsecondcolor=random(3)+1;
       }
       else
-      { 
+      {
         showsecondcolor=secondcolor;
       }
-        ht1632_putbigbitmap(x, ypos + ( rowcountbitmap *i), showcolor, showsecondcolor,  bitmapname ,columncountbitmap,rowcountbitmap, oddeven); 
+        ht1632_putbigbitmap(x, ypos + ( rowcountbitmap *i), showcolor, showsecondcolor,  bitmapname ,columncountbitmap,rowcountbitmap, oddeven);
       }
       delay(delaytime);// reduce speed of scroll
-      ypos --;    
+      ypos --;
     }
     ya = 1;
   }
@@ -1149,9 +1158,9 @@ void HT1632c::scrollbitmapycolor(int x,byte color, byte secondcolor,unsigned cha
  * Scrolls a text string from left to right
  * Simple function for the original ht1632_putchar method without MULTICOLOR and no background color
  * Original function by Bill Ho
- * scrolltextxcolor(y location, string ,  colorname (RANDOMCOLOR for random color), delaytime in milliseconds) 
+ * scrolltextxcolor(y location, string ,  colorname (RANDOMCOLOR for random color), delaytime in milliseconds)
  */
-void HT1632c::scrolltextxcolor(int y,char Str1[ ], byte color, int delaytime){  
+void HT1632c::scrolltextxcolor(int y,char Str1[ ], byte color, int delaytime){
   int messageLength = strlen(Str1)+ 1;
   byte showcolor;
   int xa = 0;
@@ -1164,7 +1173,7 @@ void HT1632c::scrolltextxcolor(int y,char Str1[ ], byte color, int delaytime){
           showcolor=random(3)+1;
         }
         else
-        { 
+        {
           showcolor=color;
         }
         ht1632_putchar(xpos + (6* i),  y,Str1[i],showcolor);
@@ -1182,10 +1191,10 @@ void HT1632c::scrolltextxcolor(int y,char Str1[ ], byte color, int delaytime){
  * scrolltextxsize()
  * Scrolls a text string from left to right
  * Original function by Bill Ho
- *  scrolltextxsizexcolor(y location, string ,  size as integer,  
- *  colorname (RANDOMCOLOR for random color), name of the second color (instead of BLACK), 
- *  name of the font array,  umber of columns, number of rows, 'G' for Gimp or 'T' for The Dot Factory 
- *  font arrays, delaytime in milliseconds) 
+ *  scrolltextxsizexcolor(y location, string ,  size as integer,
+ *  colorname (RANDOMCOLOR for random color), name of the second color (instead of BLACK),
+ *  name of the font array,  umber of columns, number of rows, 'G' for Gimp or 'T' for The Dot Factory
+ *  font arrays, delaytime in milliseconds)
  */
 void HT1632c::scrolltextsizexcolor(int y,char Str1[ ], char size, byte color, byte secondcolor,  unsigned char fontname[][NCOLUMNS], int columncountfont, char rowcountfont, char oddeven, int delaytime){
    int messageLength = strlen(Str1)+ 1;
@@ -1199,17 +1208,17 @@ void HT1632c::scrolltextsizexcolor(int y,char Str1[ ], char size, byte color, by
           showcolor=random(3)+1;
         }
         else
-        { 
+        {
           showcolor=color;}
           if (secondcolor==4){
         showsecondcolor=random(3)+1;
       }
       else
-      { 
+      {
         showsecondcolor=secondcolor;
       }
         ht1632_putcharsizecolor(xpos + (columncountfont*size * i),  y,Str1[i],   size,   showcolor, showsecondcolor,  fontname,  columncountfont, rowcountfont,  oddeven);
-        
+
       }
       delay(delaytime);// reduce speed of scroll
       xpos--;
@@ -1223,10 +1232,10 @@ void HT1632c::scrolltextsizexcolor(int y,char Str1[ ], char size, byte color, by
  * scrolltextysize()
  * Scrolls a text string from bottom to up
  * Original function by Bill Ho
- *  scrolltextxsizeycolor(y location, string ,  size as integer, 
- *  colorname (RANDOMCOLOR for random color), name of the second color (instead of BLACK), 
- *  name of the font array,  number of columns, number of rows, 'G' for Gimp or 'T' for 
- *  The Dot Factory font arrays, delaytime in milliseconds) 
+ *  scrolltextxsizeycolor(y location, string ,  size as integer,
+ *  colorname (RANDOMCOLOR for random color), name of the second color (instead of BLACK),
+ *  name of the font array,  number of columns, number of rows, 'G' for Gimp or 'T' for
+ *  The Dot Factory font arrays, delaytime in milliseconds)
  */
 void HT1632c::scrolltextsizey(int x,char Str1[ ], char size, byte color, byte secondcolor, unsigned char fontname[][NCOLUMNS], int columncountfont, char rowcountfont, char oddeven, int delaytime){
    int messageLength = strlen(Str1)+ 1;
@@ -1240,17 +1249,17 @@ void HT1632c::scrolltextsizey(int x,char Str1[ ], char size, byte color, byte se
           showcolor=random(3)+1;
         }
         else
-        { 
+        {
           showcolor=color;}
           if (secondcolor==4){
         showsecondcolor=random(3)+1;
       }
       else
-      { 
+      {
         showsecondcolor=secondcolor;
       }
         ht1632_putcharsizecolor(x,ypos + (columncountfont*size * i),Str1[i],   size,  showcolor, showsecondcolor, fontname,  columncountfont, rowcountfont,  oddeven);
-        
+
       }
       delay(delaytime);// reduce speed of scroll
       ypos--;
@@ -1263,10 +1272,10 @@ void HT1632c::scrolltextsizey(int x,char Str1[ ], char size, byte color, byte se
  * scrolltextsize1Dxcolor()
  * Scrolls a text string from left to right
  * Original function by Bill Ho
- *  scrolltextsize1Dxcolor(x location, string ,  size as integer, 
- *  colorname (RANDOMCOLOR for random color), name of the second color (instead of BLACK), 
- *  name of the font array,  number of columns, number of rows, 'G' for Gimp or 
- *  'T' for The Dot Factory font arrays, delaytime in milliseconds) 
+ *  scrolltextsize1Dxcolor(x location, string ,  size as integer,
+ *  colorname (RANDOMCOLOR for random color), name of the second color (instead of BLACK),
+ *  name of the font array,  number of columns, number of rows, 'G' for Gimp or
+ *  'T' for The Dot Factory font arrays, delaytime in milliseconds)
  */
 void HT1632c::scrolltextsize1Dxcolor(int y, char Str1[ ], char size,  byte color, byte secondcolor, unsigned char * fontname,   int columncountfont, char rowcountfont, char oddeven, int delaytime){
    int messageLength = strlen(Str1)+1;
@@ -1280,17 +1289,17 @@ void HT1632c::scrolltextsize1Dxcolor(int y, char Str1[ ], char size,  byte color
           showcolor=random(3)+1;
         }
         else
-        { 
+        {
           showcolor=color;}
           if (secondcolor==4){
         showsecondcolor=random(3)+1;
       }
       else
-      { 
+      {
         showsecondcolor=secondcolor;
       }
         ht1632_putcharsize1D(xpos + (columncountfont*size * i),  y,Str1[i],   size,  showcolor, showsecondcolor,   fontname,  columncountfont, rowcountfont,  oddeven);
-      
+
       }
       delay(delaytime);// reduce speed of scroll
       xpos--;
@@ -1309,7 +1318,7 @@ void HT1632c::text(char str[], int x, int y, int color) {
 }
 
 // basic text function, no scroll
-void HT1632c::text(int num, int x, int y, int color) { 
+void HT1632c::text(int num, int x, int y, int color) {
   int m = numdigits(num);
   for (int i = 0; i < m; i++) {
     int digit = extractDigit(num, m-i-1) + 48;
@@ -1337,7 +1346,5 @@ return count;
 
 // basic image function, assuming it fits on the screen
 void HT1632c::image(unsigned char * bitmapName, int x, int y, int width, int height, byte color, byte secondColor, char oddEven) {
-        ht1632_putbigbitmap(x, y, color, secondColor, bitmapName, width, height, oddEven); 
+        ht1632_putbigbitmap(x, y, color, secondColor, bitmapName, width, height, oddEven);
 }
-
-
