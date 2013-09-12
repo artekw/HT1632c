@@ -278,7 +278,7 @@ void HT1632c::set_brightness (uint8_t pwm) {
   if (pwm > 15) {
     pwm = 15;
   }
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 5; i++) {
     ht1632_sendcmd(i, HT1632_CMD_PWM | pwm);
   }
 }
